@@ -72,17 +72,16 @@ readData::readData(string filename)
     int numOfDimensions=allDataPointsVec[0].size();
     int numOfElements=allDataPointsVec.size();
 
+    cout<<"The number of points is "<<numOfElements<<endl;
+
     for(int i=0; i<numOfElements; i++)
     {
-        for(int j=0; j<numOfDimensions; j++)
-        {
-            //cout<<"PointID is "<<i<<" "<<j<<"t"<<setprecision(20)<<"value is "<<allDataPointsVec[i][j]<<endl;
-            img_pts.push_back(Point2d(allDataPointsVec[i][0],allDataPointsVec[i][1]));
-            pred_wld_pts.push_back(Point3d(allDataPointsVec[i][2],allDataPointsVec[i][3],allDataPointsVec[i][4]));
-            gt_wld_pts.push_back(Point3d(allDataPointsVec[i][5],allDataPointsVec[i][6],allDataPointsVec[i][7]));
-            pred_color.push_back(Point3d(allDataPointsVec[i][8],allDataPointsVec[i][9],allDataPointsVec[i][10]));
-            actual_color.push_back(Point3d(allDataPointsVec[i][11],allDataPointsVec[i][12],allDataPointsVec[i][13]));
-        }
+        //cout<<"PointID is "<<i<<" "<<j<<"t"<<setprecision(20)<<"value is "<<allDataPointsVec[i][j]<<endl;
+        img_pts.push_back(Point2d(allDataPointsVec[i][0],allDataPointsVec[i][1]));
+        pred_wld_pts.push_back(Point3d(allDataPointsVec[i][2],allDataPointsVec[i][3],allDataPointsVec[i][4]));
+        gt_wld_pts.push_back(Point3d(allDataPointsVec[i][5],allDataPointsVec[i][6],allDataPointsVec[i][7]));
+        pred_color.push_back(Point3d(allDataPointsVec[i][8],allDataPointsVec[i][9],allDataPointsVec[i][10]));
+        actual_color.push_back(Point3d(allDataPointsVec[i][11],allDataPointsVec[i][12],allDataPointsVec[i][13]));
 
     }
 
@@ -90,9 +89,9 @@ readData::readData(string filename)
 
 void visualize_world_coordinate()
 {
-    char rgb_img_file[] = "/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.color.png";
-    char depth_img_file[] = "/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.depth.png";
-    char pose_file[] = "/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.pose.txt";
+    char rgb_img_file[] = "/home/lili/BMVC/7_scenes/chess/seq-03/frame-000980.color.png";
+    char depth_img_file[] = "/home/lili/BMVC/7_scenes/chess/seq-03/frame-000980.depth.png";
+    char pose_file[] = "/home/lili/BMVC/7_scenes/chess/seq-03/frame-000980.pose.txt";
 
     cv::Mat camera_depth_img;
     cv::Mat rgb_img;
@@ -422,28 +421,32 @@ bool preemptiveRANSAC(const vector<cv::Point3d> & wld_pts,
 
 int main()
 {
-     ofstream fout("/home/lili/PatternRecognition/RANSAC/estimated_poses_error.txt");
+     ofstream fout("/home/lili/PatternRecognition/RANSAC/chess_inliers_and_error/980/estimated_poses_error980.txt");
 
-     ofstream fout2("/home/lili/PatternRecognition/RANSAC/inliers_num.txt");
+     ofstream fout2("/home/lili/PatternRecognition/RANSAC/chess_inliers_and_error/980/inliers_num980.txt");
 
-     string rgb_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.color.png";
+     string rgb_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000980.color.png";
      Mat rgb_frame=imread(rgb_loc,  CV_LOAD_IMAGE_COLOR);
      assert(rgb_frame.type()==CV_8UC3);
 
 
      //imshow("RGB",rgb_frame);
 
-     string depth_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.depth.png";
+     string depth_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000980.depth.png";
      Mat depth_frame=imread(depth_loc, CV_LOAD_IMAGE_ANYDEPTH);
      assert(depth_frame.type() == CV_16UC1);
      depth_frame.convertTo(depth_frame, CV_64F);
      //imshow("Depth",depth_frame);
      //waitKey(0);
 
-     string data_loc="/home/lili/PatternRecognition/RANSAC/rgb4000_small_leaf_node_000000.txt";
-     const char* pose_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.pose.txt";
+     string data_loc="/home/lili/PatternRecognition/RANSAC/chess_inliers_and_error/980/rgb4000_small_leaf_node_000003.txt";
+     const char* pose_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000980.pose.txt";
      readData getData(data_loc);
      readPose gtPose;
+
+
+     int N=getData.gt_wld_pts.size();
+     cout<<"The number of points is "<<getData.gt_wld_pts.size()<<endl;
 
      Mat gt_pose=gtPose.getPose(pose_loc);
      cout<<"ground truth pose is "<<gt_pose<<endl;
@@ -471,11 +474,10 @@ int main()
 
     //cv::solvePnPRansac(Mat(getData.pred_wld_pts), Mat(getData.img_pts), camera_matrix, Mat(), rvec, tvec, false, 1000, 8.0);
     //cv::solvePnP(Mat(getData.pred_wld_pts), Mat(getData.img_pts), camera_matrix, Mat(), rvec, tvec, false, CV_EPNP);
-    int N=getData.gt_wld_pts.size();
-    cout<<"The number of points is "<<getData.gt_wld_pts.size()<<endl;
 
 
-    int iteration_num=10000;
+
+    int iteration_num=1000;
     vector<double> trans_error_vec;
     vector<double> rot_error_vec;
     vector<int> inliers_vec;
