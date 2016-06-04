@@ -22,6 +22,24 @@ using namespace std;
 
 using namespace cv;
 
+struct mycomparision {
+  bool operator() (int i,int j) { return (i>j);}
+} mycompare;
+
+
+template <typename T>
+vector<size_t> sort_indexes(const vector<T> &v) {
+
+  // initialize original index locations
+  vector<size_t> idx(v.size());
+  for (size_t i = 0; i != idx.size(); ++i) idx[i] = i;
+
+  // sort indexes based on comparing values in v
+  sort(idx.begin(), idx.end(),
+       [&v](size_t i1, size_t i2) {return v[i1] > v[i2];});
+
+  return idx;
+}
 
 readData::readData(string filename)
 {
@@ -404,7 +422,10 @@ bool preemptiveRANSAC(const vector<cv::Point3d> & wld_pts,
 
 int main()
 {
-     ofstream fout("/home/lili/PatternRecognition/RANSAC/estimated_poses.txt");
+     ofstream fout("/home/lili/PatternRecognition/RANSAC/estimated_poses_error.txt");
+
+     ofstream fout2("/home/lili/PatternRecognition/RANSAC/inliers_num.txt");
+
      string rgb_loc="/home/lili/BMVC/7_scenes/chess/seq-03/frame-000594.color.png";
      Mat rgb_frame=imread(rgb_loc,  CV_LOAD_IMAGE_COLOR);
      assert(rgb_frame.type()==CV_8UC3);
@@ -436,20 +457,20 @@ int main()
     double fx= 585;
     double fy= 585;
 
-    cv::Mat cameraMatrix(3,3,CV_64F);
+    cv::Mat camera_matrix(3,3,CV_64F);
 
-    cameraMatrix.at<double>(0,0)=fx;
-    cameraMatrix.at<double>(0,1)=0;
-    cameraMatrix.at<double>(0,2)=cx;
-    cameraMatrix.at<double>(1,0)=0;
-    cameraMatrix.at<double>(1,1)=fy;
-    cameraMatrix.at<double>(1,2)=cy;
-    cameraMatrix.at<double>(2,0)=0;
-    cameraMatrix.at<double>(2,1)=0;
-    cameraMatrix.at<double>(2,2)=1;
+    camera_matrix.at<double>(0,0)=fx;
+    camera_matrix.at<double>(0,1)=0;
+    camera_matrix.at<double>(0,2)=cx;
+    camera_matrix.at<double>(1,0)=0;
+    camera_matrix.at<double>(1,1)=fy;
+    camera_matrix.at<double>(1,2)=cy;
+    camera_matrix.at<double>(2,0)=0;
+    camera_matrix.at<double>(2,1)=0;
+    camera_matrix.at<double>(2,2)=1;
 
-    //cv::solvePnPRansac(Mat(getData.pred_wld_pts), Mat(getData.img_pts), cameraMatrix, Mat(), rvec, tvec, false, 1000, 8.0);
-    //cv::solvePnP(Mat(getData.pred_wld_pts), Mat(getData.img_pts), cameraMatrix, Mat(), rvec, tvec, false, CV_EPNP);
+    //cv::solvePnPRansac(Mat(getData.pred_wld_pts), Mat(getData.img_pts), camera_matrix, Mat(), rvec, tvec, false, 1000, 8.0);
+    //cv::solvePnP(Mat(getData.pred_wld_pts), Mat(getData.img_pts), camera_matrix, Mat(), rvec, tvec, false, CV_EPNP);
     int N=getData.gt_wld_pts.size();
     cout<<"The number of points is "<<getData.gt_wld_pts.size()<<endl;
 
@@ -457,34 +478,35 @@ int main()
     int iteration_num=10000;
     vector<double> trans_error_vec;
     vector<double> rot_error_vec;
+    vector<int> inliers_vec;
 
     for(int i=0; i<iteration_num; i++)
     {
 
-     //sample random set
-    vector<cv::Point2d> four_img_pts;
-    vector<cv::Point3d> four_wld_pts;
+        //sample random set
+        vector<cv::Point2d> four_img_pts;
+        vector<cv::Point3d> four_wld_pts;
 
-    for(int i=0; i<4; i++)
-    {
-        int index = rand()%N;
-        four_img_pts.push_back(getData.img_pts[index]);
-        four_wld_pts.push_back(getData.pred_wld_pts[index]);
-    }
-
-
-    cv::solvePnP(Mat(four_wld_pts), Mat(four_img_pts), cameraMatrix, Mat(), rvec, tvec, false, CV_P3P);
+        for(int i=0; i<4; i++)
+        {
+            int index = rand()%N;
+            four_img_pts.push_back(getData.img_pts[index]);
+            four_wld_pts.push_back(getData.pred_wld_pts[index]);
+        }
 
 
-    const PreemptiveRANSACParameter param;
-    cv::Mat camera_pose = cv::Mat::eye(4, 4, CV_64F);
+        cv::solvePnP(Mat(four_wld_pts), Mat(four_img_pts), camera_matrix, Mat(), rvec, tvec, false, CV_P3P);
 
 
-    //preemptiveRANSAC(Mat(getData.pred_wld_pts), Mat(getData.img_pts), cameraMatrix, Mat(), param, camera_pose);
+        const PreemptiveRANSACParameter param;
+        cv::Mat camera_pose = cv::Mat::eye(4, 4, CV_64F);
 
 
-    //cv::solvePnPRansac(Mat(getData.pred_wld_pts), Mat(getData.img_pts), cameraMatrix, Mat(), rvec, tvec, false, 1000, 8.0);
-    // change to camera to world transformation
+        //preemptiveRANSAC(Mat(getData.pred_wld_pts), Mat(getData.img_pts), camera_matrix, Mat(), param, camera_pose);
+
+
+        //cv::solvePnPRansac(Mat(getData.pred_wld_pts), Mat(getData.img_pts), camera_matrix, Mat(), rvec, tvec, false, 1000, 8.0);
+        // change to camera to world transformation
 
 
     Mat rot;
@@ -553,8 +575,50 @@ int main()
     rot_error_vec.push_back(error_rot);
     fout<<error_trans<<" "<<error_rot<<endl;
 
+    vector<cv::Point2d> projected_pts;
+
+    cv::projectPoints(Mat(getData.pred_wld_pts), rvec, tvec, camera_matrix, Mat(), projected_pts);
+    assert(getData.img_pts.size()==projected_pts.size());
+
+
+        int inlier_count=0;
+        for(int i=0; i<projected_pts.size(); i++)
+        {
+            double error_reproj = cv::norm(getData.img_pts[i]-projected_pts[i]);
+
+            if(error_reproj<10)
+            {
+                inlier_count++;
+            }
+
+        }
+
+        inliers_vec.push_back(inlier_count);
+       // printf("good projection (reprojection_error<10) number is %d, percentage %lf.\n", inlier_count, 1.0*inlier_count/projected_pts.size());
+    }
+
+    vector<int>::iterator max_inliers_ite=std::max_element(std::begin(inliers_vec), std::end(inliers_vec));
+
+    int max_inliers_position=std::distance(std::begin(inliers_vec), max_inliers_ite);
+
+    int max_inliers_num = inliers_vec[max_inliers_position];
+
+    cout<<"max_inliers_position "<<max_inliers_position<<"max_liers_num "<<max_inliers_num<<" inlier number percentage(reprojection_error<10) is "<<1.0*max_inliers_num/getData.img_pts.size()<<endl;
+
+    vector<size_t> sorted_index_vec=sort_indexes(inliers_vec);
+
+
+   // std::sort (inliers_vec.begin(), inliers_vec.end(), mycompare);
+
+    for(int i=0; i<10; i++)
+    {
+
+        cout<<"top "<<i<<" "<<"inliers_num "<<inliers_vec[sorted_index_vec[i]]<<" inlier number percentage(reprojection_error<10) is "<<1.0*inliers_vec[sorted_index_vec[i]]/getData.img_pts.size()<<endl;
+        fout2<<i<<" "<<inliers_vec[sorted_index_vec[i]]<<" "<<1.0*inliers_vec[sorted_index_vec[i]]/getData.img_pts.size()<<" "<<trans_error_vec[sorted_index_vec[i]]<<" "<<rot_error_vec[sorted_index_vec[i]]<<endl;
 
     }
+
+
 
     vector<double>::iterator min_trans_ite=std::min_element(std::begin(trans_error_vec),std::end(trans_error_vec));
 
