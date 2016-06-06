@@ -27,6 +27,10 @@ struct mycomparision {
   bool operator() (int i,int j) { return (i>j);}
 } mycompare;
 
+struct mycomparision1 {
+  bool operator() (int i,int j) { return (i<j);}
+} mycompareSL;
+
 template <typename T>
 vector<size_t> sort_indexes(const vector<T> &v) {
 
@@ -141,7 +145,6 @@ int main()
 
     int num_imgs=(int)leaf_files_vec.size();
     cout<<num_imgs<<endl;
-    cout<<leaf_files_vec[0]<<endl;
 
     vector<vector<cv::Point2d> > img_pts_vec;
     vector<vector<cv::Point3d> > wld_pts_pred_vec;
@@ -154,9 +157,9 @@ int main()
     vector<string> rgb_imgs_vec;
     vector<string> depth_imgs_vec;
     vector<string> camera_poses_vec;
+    vector<double> frame_num_vec;
 
-
-    for(int m=0; m<1; m++)
+    for(int m=0; m<num_imgs; m++)
     {
 
         string rgb_img_file_jimmy, depth_img_file_jimmy, camera_pose_file_jimmy;
@@ -199,7 +202,11 @@ int main()
 
         ///find the frame number
         size_t frame_num_pos=rgb_img_file_jimmy.find("frame");
-        string frame_num= rgb_img_file_jimmy.substr(frame_num_pos);
+        string frame_num_tmp= rgb_img_file_jimmy.substr(frame_num_pos);
+        string frame_num_str=frame_num_tmp.substr(6,7);
+        double frame_num=stod(frame_num_str);
+
+        frame_num_vec.push_back(frame_num);
 
         /*
         cout<<rgb_substr_dir<<endl;
